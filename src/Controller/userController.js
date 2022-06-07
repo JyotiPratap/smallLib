@@ -71,16 +71,6 @@ const createUser = async (req, res) => {
         if (!isValid(password)) { 
            return res.status(400).send({ status: false, message: "Password is required" }) 
         }
-        
-        //Checking if password contains 8-15 characters or not
-        let Password = data.password
-        let validatePassword = function (Password) {
-            return /^[a-zA-Z0-9]{8,15}$/.test(Password);
-        }
-        if (!validatePassword(Password)){
-        return res.status(400).send({status: false , message: "The length of password should be in between 8-15 characters"})
-        }
-
         //If all these validations passed , registering a user
         let UserData = await UserModel.create(data)
         return res.status(201).send({status: true , message: "You're registered successfully", data: UserData })
