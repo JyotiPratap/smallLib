@@ -1,5 +1,6 @@
-const BookModel = require("../Model/BookModel")
-const UserModel = require("../Model/UserModel")
+const bookModel = require("../Model/bookModel")
+const BookModel = require("../Model/bookModel")
+const UserModel = require("../Model/userModel")
 
 //Creating a validation function
 const isValid = function (value) {
@@ -24,7 +25,7 @@ const createBook = async (req, res) => {
 
         if (!isValid(title)) {
              return res.status(400).send({ status: false, message: "title is required" })
-             }s
+             }
 
         //Checking if title already exists (i.e. title is not unique)
         let uniqueTitle = await BookModel.findOne({title : data.title})
@@ -32,9 +33,7 @@ const createBook = async (req, res) => {
           return res.status(400).send({status: false , message: "title already exists"})
              }
           
-        if (!isValid(excerpt)) { 
-            return res.status(400).send({ status: false, message: "excerpt is required" }) 
-        }
+       
         if (!isValid(userId)) { 
             return res.status(400).send({ status: false, message: "userId is required" })
          }
@@ -49,16 +48,28 @@ const createBook = async (req, res) => {
         }
 
         //Checking if user with this id exists in our collection or not
-        let UserExists = await UserModel.findOne($and[{_id : data.userId}, {$or:[{role:["CREATOR"]},{role:["CREATOR","VIWER"]},{role:["CREATOR","VIEW_ALL"]},{role:["CREATOR","VIEWER","VIEW_ALL"]}]}])
-        if (!UserExists) {
+        let userExist=await UserModel.findOne({_id:UserId}).select({role:1,_id:0})
+         if (!userExist) {
             return res.status(400).send({status: false , message: "No such user exists with this id and role"})
         }
+        let Role=userExist.role;
+        let validRole= function(value){
+            for(let i=0;i<value.length;i++){
+                if((value[i]=="CREATOR")||((value[i]=="CREATOR")&&((value[i]="VIEWER")||(value[i]=="VIEW_ALL")))) return true;
+            }
+            return false;
+        }
+        if (!validRole(Role)) {
+            return res.status(400).send({status: false , message: "No such user exists with this  role"})
+        }
+
+       
 
         if (!isValid(category)) { 
             return res.status(400).send({ status: false, message: "category is required" })
          }
 
-        //Subcategory is array of string so we can not check validation of it by isValid function
+        //Subcategory is array of string so we can not check validation of it by *isValid* function
 
          if (!isValid(releasedAt)) { 
             return res.status(400).send({ status: false, message: "releasedAt is required" })
@@ -97,10 +108,44 @@ const viewYourBooks = async (req , res) => {
         if (isValid(user_Id) && validateUserId(user_Id)) {
             filterQuery['userId'] = user_Id
             }
-            let UserExists = await UserModel.findOne($and[{_id :user_Id}, {$or:[{role:["CREATOR","VIWER"]},{role:["CREATOR","VIEWER","VIEW_ALL"]}]}])
-            if (!UserExists) {
-                return res.status(400).send({status: false , message: "Your role is not enough for view the book"})
+            
+            let userExist=await UserModel.findOne({_id:user_Id}).select({role:1,_id:0})
+            if (!userExist) {
+               return res.status(400).send({status: false , message: "No such user exists with this id and role"})
+           }
+           let Role=userExist.role;
+           let validRole= function(value){
+               for(let i=0;i<value.length;i++){
+                   if(((value[i]=="CREATOR")&& (value[i]=="VIEWER"))||((value[i]=="CREATOR")&& (value[i]=="VIEWER") && (value[i]=="VIEW_ALL"))) return true;
+               }
+               return false;
+           }
+           if (!validRole(Role)) {
+               return res.status(403).send({status: false , message: "You can not do this task"})
+           }
+
+           let queryBody=req.query.body
+         const{neW,old}=query;
+        if(queryBody){
+            const time=Date.now()-10*60*60
+          if(neW) { 
+              let bookTime= await BookModel.find({createdAt:{$lt:time}})
+            if(!bookTime){
+                res.status(404).send("No book created within 10 minutes")
             }
+            return res.status(200).send({ status: true, message: "Books list" , data: bookTime });
+
+        }
+        if(old){
+            let bookTimes= await BookModel.find({createdAt:{$gt:time}})
+            if(!bookTimes){
+                res.status(404).send("No book created before 10 minutes")
+            }
+            return res.status(200).send({ status: true, message: "Books list" , data: bookTimes });
+
+        }
+
+        }
     
         //Fetching books which have the above filters
         const books = await BookModel.find({$and : [filterQuery]})
@@ -132,14 +177,45 @@ const viewAllBooks = async (req , res) => {
         if (!validateUserId(user_Id)){
             return res.status(400).send({status: false , message: `${user_Id} is not valid type user Id`})
             }
-        
-            
-            let UserExists = await UserModel.findOne($and[{_id :user_Id}, {$or:[{role:["VIEW_ALL"]},{role:["CREATOR","VIEWER","VIEW_ALL"]},{role:["CREATOR","VIEW_ALL"]},{role:["VIEWER","VIEW_ALL"]}]}])
-            if (!UserExists) {
-                return res.status(400).send({status: false , message: "Your role is not enough for view all the book"})
+
+            let userExist=await UserModel.findOne({_id:user_Id}).select({role:1,_id:0})
+            if (!userExist) {
+               return res.status(400).send({status: false , message: "No such user exists with this id and role"})
+           }
+           let Role=userExist.role;
+           let validRole= function(value){
+               for(let i=0;i<value.length;i++){
+                   if(((value[i]=="CREATOR")&& (value[i]=="VIEW_ALL"))||((value[i]=="VIEW_ALL"))||((value[i]=="CREATOR")&& (value[i]=="VIEWER") && (value[i]=="VIEW_ALL"))||((value[i]=="VIEWER")&&(value[i]=="VIEW_ALL"))) return true;
+               }
+               return false;
+           }
+           if (!validRole(Role)) {
+               return res.status(403).send({status: false , message: "You can not do this task"})
+           }
+        let queryBody=req.query.body
+         const{neW,old}=query;
+        if(queryBody){
+            const time=Date.now()-10*60*60
+          if(neW) { 
+              let bookTime= await BookModel.find({createdAt:{$lt:time}})
+            if(!bookTime){
+                res.status(404).send("No book created within 10 minutes")
             }
-    
-        //Fetching books which have the above filters
+            return res.status(200).send({ status: true, message: "Books list" , data: bookTime });
+
+        }
+        if(old){
+            let bookTimes= await BookModel.find({createdAt:{$gt:time}})
+            if(!bookTimes){
+                res.status(404).send("No book created before 10 minutes")
+            }
+            return res.status(200).send({ status: true, message: "Books list" , data: bookTimes });
+
+        }
+
+        }
+        else{
+            //Fetching books which have the above filters
         const books = await BookModel.find({$and : [filterQuery]})
         //If no such book found
         if (Array.isArray(books) && books.length == 0) {
@@ -147,7 +223,7 @@ const viewAllBooks = async (req , res) => {
         }
         //Sending successful response (only data with above filters)
         return res.status(200).send({ status: true, message: "Books list" , data: books });
-
+        }
         } 
         
        
@@ -160,5 +236,5 @@ const viewAllBooks = async (req , res) => {
 
 
 module.exports.createBook=createBook;
-module.exports.viewYourBooks=viewYourBooks;
+module.exports.viewYourBooks=viewAllBooks;
 module.exports.viewAllBooks=viewAllBooks;

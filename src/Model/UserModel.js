@@ -1,29 +1,42 @@
 const mongoose = require('mongoose');
 
-const user = new mongoose.Schema({
-    name: {
-        required: true,
+const userSchema = new mongoose.Schema({
+   
+    name:{
         type: String,
+        required: "name is required",
         trim: true
     },
-    email: {
-        required: true,
-        unique: true,
+    role:{
+        type: [String],
+        required:"role is required",
+    },
+    mobile:{
+        type:String,
+        required: "mobile is required",
+        unique:true,
+    },
+    email:{
         type: String,
-        trim: true
+        required: "email is required",
+        unique: true,
+        validate: {
+            validator: function (email) {
+                return /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email);
+            },
+            message: "PLease enter a valid email",
+        }
     },
     password: {
         type: String,
-        required: true,
-        minLength: 8,
-        maxLength: 15
+        required: "password is required",
+        validator: function (password) {
+            return /^[a-zA-Z0-9]{8,15}$/.test(password);
+        },
+        message: "The length of password should be in between 8-15 characters",
     },
-    Role:{
-        type:String,
-        required:true,
-        enum: ["CREATOR", "VIEWER", "VIEW_ALL"],
-        trim:true
-    }
-}, { timestamps: true });
+   
+    
+},{ timestamps: true })
 
-module.exports = mongoose.model('Creator', user) 
+module.exports = mongoose.model('User', userSchema)
